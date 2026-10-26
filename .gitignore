@@ -1,0 +1,12 @@
+# part1 executables
+part1/empty
+part1/part1
+
+# kernel module artifacts
+*.o
+*.ko
+*.mod
+*.mod.c
+*.cmd
+*.order
+*.symvers
