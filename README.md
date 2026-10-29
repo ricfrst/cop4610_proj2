@@ -122,24 +122,17 @@ This will run the program ...
 ## Development Log
 Each member records their contributions here.
 
-### [Member 1]
+### Ricardo Furst
 
 | Date       | Work Completed / Notes |
 |------------|------------------------|
-| YYYY-MM-DD | [Description of task]  |
-| YYYY-MM-DD | [Description of task]  |
-| YYYY-MM-DD | [Description of task]  |
+| 2026-10-20 | Part 1: wrote `empty.c` and `part1.c` +Makefile with `trace` target that runs `strace` on both programs. 
+| 2026-10-20 | Part 2: wrote the `my_timer` module; `/proc/timer` prints the current time and the elapsed time since the previous read. |
+| 2026-10-25 | Part 3a: wrote `syscalls.c` with system calls 548-550 and their module stubs, plus `kernel_setup.sh` to add them to the 6.16 kernel source and prepare the build config. |
+| 2026-10-25 | Part 3c: added the elevator kthread that moves one floor at a time (2 s per floor, 1 s per load/unload stop) and handles start/stop. |
+| 2026-10-29 | Part 3d: added the linked lists for pets waiting on each floor and pets on the elevator, with `kmalloc`/`kfree` for each pet and FIFO boarding under the 5-pet / 50 lb limits. |
 
-### [Member 2]
-
-| Date       | Work Completed / Notes |
-|------------|------------------------|
-| YYYY-MM-DD | [Description of task]  |
-| YYYY-MM-DD | [Description of task]  |
-| YYYY-MM-DD | [Description of task]  |
-
-
-### [Member 3]
+### Kyan Carrigan
 
 | Date       | Work Completed / Notes |
 |------------|------------------------|
