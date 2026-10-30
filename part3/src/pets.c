@@ -1,3 +1,4 @@
+#include <linux/errno.h>
 #include <linux/slab.h>
 #include "elevator.h"
 
@@ -113,6 +114,19 @@ bool pets_work_on_floor(int floor)
             return true;
     }
     return !elevator.deactivating && FLOOR(floor)->num_waiting > 0;
+}
+
+// one-letter code used by /proc/elevator
+char pets_type_char(int type)
+{
+    static const char codes[NUM_PET_TYPES] = {
+        [CHIHUAHUA] = 'C',
+        [PUG]       = 'P',
+        [PUGHUAHUA] = 'H',
+        [DACHSHUND] = 'D',
+    };
+
+    return codes[type];
 }
 
 int pets_waiting_total(void)

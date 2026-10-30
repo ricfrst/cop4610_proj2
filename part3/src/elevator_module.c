@@ -11,19 +11,27 @@ extern int (*STUB_start_elevator)(void);
 extern int (*STUB_issue_request)(int, int, int);
 extern int (*STUB_stop_elevator)(void);
 
+DEFINE_MUTEX(elevator_lock);
 struct elevator elevator;
 
 static int start_elevator(void)
 {
-    if (elevator.state != OFFLINE)
-        return 1;
+    int ret = 0;
 
-    elevator.state = IDLE;
-    return 0;
+    mutex_lock(&elevator_lock);
+    if (elevator.state != OFFLINE)
+        ret = 1;
+    else
+        elevator.state = IDLE;
+    mutex_unlock(&elevator_lock);
+
+    return ret;
 }
 
 static int issue_request(int start_floor, int destination_floor, int type)
 {
+    int ret;
+
     if (start_floor < MIN_FLOOR || start_floor > MAX_FLOOR)
         return 1;
     if (destination_floor < MIN_FLOOR || destination_floor > MAX_FLOOR)
@@ -33,16 +41,25 @@ static int issue_request(int start_floor, int destination_floor, int type)
     if (type < 0 || type >= NUM_PET_TYPES)
         return 1;
 
-    return pets_add_request(start_floor, destination_floor, type);
+    mutex_lock(&elevator_lock);
+    ret = pets_add_request(start_floor, destination_floor, type);
+    mutex_unlock(&elevator_lock);
+
+    return ret;
 }
 
 static int stop_elevator(void)
 {
+    int ret = 0;
+
+    mutex_lock(&elevator_lock);
     if (elevator.deactivating)
-        return 1;
-    if (elevator.state != OFFLINE)
+        ret = 1;
+    else if (elevator.state != OFFLINE)
         elevator.deactivating = true;
-    return 0;
+    mutex_unlock(&elevator_lock);
+
+    return ret;
 }
 
 static int __init elevator_init(void)
@@ -57,9 +74,15 @@ static int __init elevator_init(void)
     elevator.deactivating = false;
     pets_init();
 
-    ret = elevator_thread_start();
+    ret = elevator_proc_init();
     if (ret)
         return ret;
+
+    ret = elevator_thread_start();
+    if (ret) {
+        elevator_proc_exit();
+        return ret;
+    }
 
     STUB_start_elevator = start_elevator;
     STUB_issue_request = issue_request;
@@ -74,7 +97,11 @@ static void __exit elevator_exit(void)
     STUB_stop_elevator = NULL;
 
     elevator_thread_stop();
+    elevator_proc_exit();
+
+    mutex_lock(&elevator_lock);
     pets_free_all();
+    mutex_unlock(&elevator_lock);
 }
 
 module_init(elevator_init);

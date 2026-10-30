@@ -7,44 +7,30 @@
 #define LOAD_SECS 1         // time to load/unload at a floor
 #define POLL_MS 100         // how often to check for work while offline or idle
 
-// true if any floor past the current one in direction dir needs a visit
-static bool work_in_direction(int dir)
-{
-    int f;
-
-    for (f = elevator.current_floor + dir; f >= MIN_FLOOR && f <= MAX_FLOOR; f += dir) {
-        if (pets_work_on_floor(f))
-            return true;
-    }
-    return false;
-}
-
-// basic direction choice: keep going while there is work ahead, otherwise
-// turn around; returns 0 when there is nothing left to do
-// (scheduling policy to be finalized in part 3f)
-static int next_direction(void)
-{
-    if (work_in_direction(elevator.direction))
-        return elevator.direction;
-    if (work_in_direction(-elevator.direction))
-        return -elevator.direction;
-    return 0;
-}
-
+/*
+ * Main elevator loop. The lock is held while reading or changing shared data
+ * and released before every sleep, so system calls and proc reads are never
+ * blocked while the elevator is moving or loading.
+ */
 static int elevator_run(void *data)
 {
     int dir;
 
     while (!kthread_should_stop()) {
+        mutex_lock(&elevator_lock);
+
         if (elevator.state == OFFLINE) {
+            mutex_unlock(&elevator_lock);
             msleep(POLL_MS);
             continue;
         }
 
-        // stop at this floor if anyone is getting off or can get on
-        if (pets_to_unload() || (!elevator.deactivating && pets_can_board())) {
+        if (scheduler_should_stop()) {
             elevator.state = LOADING;
+            mutex_unlock(&elevator_lock);
             ssleep(LOAD_SECS);
+            mutex_lock(&elevator_lock);
+
             pets_unload();
             if (!elevator.deactivating)
                 pets_load();
@@ -54,12 +40,14 @@ static int elevator_run(void *data)
         if (elevator.deactivating && elevator.num_pets == 0) {
             elevator.deactivating = false;
             elevator.state = OFFLINE;
+            mutex_unlock(&elevator_lock);
             continue;
         }
 
-        dir = next_direction();
+        dir = scheduler_next_direction();
         if (dir == 0) {
             elevator.state = IDLE;
+            mutex_unlock(&elevator_lock);
             msleep(POLL_MS);
             continue;
         }
@@ -67,8 +55,12 @@ static int elevator_run(void *data)
         // the elevator only ever moves one floor at a time
         elevator.direction = dir;
         elevator.state = (dir > 0) ? UP : DOWN;
+        mutex_unlock(&elevator_lock);
         ssleep(MOVE_SECS);
+
+        mutex_lock(&elevator_lock);
         elevator.current_floor += dir;
+        mutex_unlock(&elevator_lock);
     }
 
     return 0;

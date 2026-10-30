@@ -4,6 +4,7 @@
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/sched.h>
+#include <linux/mutex.h>
 
 #define MIN_FLOOR 1
 #define MAX_FLOOR 5
@@ -40,6 +41,12 @@ struct elevator {
     struct task_struct *kthread;
 };
 
+/*
+ * elevator_lock protects everything below it: the elevator, every floor, and
+ * pets_serviced. It is shared by the kthread, the system calls, and the proc
+ * file. Functions in pets.c and scheduler.c expect the caller to hold it.
+ */
+extern struct mutex elevator_lock;
 extern struct elevator elevator;
 extern struct floor floors[NUM_FLOORS];
 extern int pets_serviced;
@@ -56,10 +63,19 @@ void pets_unload(void);
 void pets_load(void);
 bool pets_work_on_floor(int floor);
 int pets_waiting_total(void);
+char pets_type_char(int type);
 void pets_free_all(void);
+
+/* scheduler.c - decides where the elevator stops and which way it moves */
+bool scheduler_should_stop(void);
+int scheduler_next_direction(void);
 
 /* elevator_thread.c - kthread that moves the elevator */
 int elevator_thread_start(void);
 void elevator_thread_stop(void);
+
+/* elevator_proc.c - /proc/elevator */
+int elevator_proc_init(void);
+void elevator_proc_exit(void);
 
 #endif
